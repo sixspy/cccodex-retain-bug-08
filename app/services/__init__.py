@@ -1,5 +1,29 @@
 from app.services.policies import list_policies, get_active_policy
-from app.services.partitions import list_partitions, get_partition
+from app.services.clock import today, today_str, parse_day
+from app.services.partitions import list_partitions, get_partition, get_partition_detail
+from app.services.grace import (
+    DISPOSITIONS,
+    GraceBlocked,
+    abort_backfill,
+    add_dependency,
+    apply_freeze_policy,
+    complete_backfill,
+    create_backfill,
+    describe_partition,
+    disposition_label,
+    effective_grace_until,
+    grace_disposition,
+    ingest_backfill,
+    list_backfill_events,
+    list_backfills,
+    list_dependencies,
+    list_grace_registrations,
+    recompute_grace,
+    register_grace,
+    release_dependency,
+    release_grace,
+    set_read_only,
+)
 from app.services.scan import run_expire_scan, list_scan_jobs, list_judgments
 from app.services.execute import execute_judgment, list_runs
 from app.services.reconcile import run_reconcile, list_reports
@@ -7,8 +31,12 @@ from app.services.reconcile import run_reconcile, list_reports
 __all__ = [
     "list_policies",
     "get_active_policy",
+    "today",
+    "today_str",
+    "parse_day",
     "list_partitions",
     "get_partition",
+    "get_partition_detail",
     "run_expire_scan",
     "list_scan_jobs",
     "list_judgments",
@@ -16,4 +44,25 @@ __all__ = [
     "list_runs",
     "run_reconcile",
     "list_reports",
+    "DISPOSITIONS",
+    "GraceBlocked",
+    "abort_backfill",
+    "add_dependency",
+    "apply_freeze_policy",
+    "complete_backfill",
+    "create_backfill",
+    "describe_partition",
+    "disposition_label",
+    "effective_grace_until",
+    "grace_disposition",
+    "ingest_backfill",
+    "list_backfill_events",
+    "list_backfills",
+    "list_dependencies",
+    "list_grace_registrations",
+    "recompute_grace",
+    "register_grace",
+    "release_dependency",
+    "release_grace",
+    "set_read_only",
 ]

@@ -30,7 +30,41 @@ CC_Codex 二期（26.11）**数据工程**产品线：**留存裁撤台**（Fast
 4. 单条裁决执行（归档写地址 / 销毁清零）  
 5. 策略与实物对账报告  
 
-预留切口（未做，供后续功能题）：策略换版生效窗、重裁作废、批量失败闭互斥、跨域依赖冻结、归档回灌等。
+## 宽限治理（宽限未到期禁止销毁）
+
+**同源判定**：`app/services/grace.py::describe_partition` 是「分区此刻能否执行」的唯一判定源。
+扫描卡片、裁决列表、分区详情、执行落库全部调用它，不存在「列表显示宽限中、却能点销毁」的分叉。
+
+- **宽限来源**：人工登记（`partitions.manual_grace_until`）与未完成补采任务（`backfill_jobs.grace_until`）取较晚者。
+- **宽限未到期**：销毁一律拦截；归档不受影响。裁决仍会开单，但标注 `can_execute=false` 与拦截原因，按钮禁用；即便直接调接口也返回 409，且不写执行流水、不改分区态、不清行数。
+- **依赖列表**：`partition_dependencies` 中新生效的 blocking 依赖（补采 / 下游消费 / 跨域引用）同样拦截销毁，解除后立即放行。
+- **补采编排**：发起补采自动挂 blocking 依赖并登记宽限；入库未完成时「完成」被拒；进度只增不减；完成/中止后自动解除对应依赖并同源重算宽限。
+- **只读冻结**：`read_only` + 可选 `freeze_until`，只拦销毁不拦归档；有限期冻结到期自动失效。
+
+### 两种处置二选一（互斥，不得并存）
+
+`RETAIN_GRACE_DISPOSITION` 只接受一个值，非法值直接报错，不会出现两套策略并存：
+
+| 取值 | 含义 | 行为 |
+|------|------|------|
+| `reject`（默认） | 整单拒绝销毁 | 宽限中销毁整单拒绝，分区态不动 |
+| `freeze` | 只读冻结宽限登记 | 宽限中分区落 `read_only` + `freeze_until`，留宽限登记流水，销毁仍被拦 |
+
+### 并发写入
+
+宽限登记、补采上报、裁决执行都走 `BEGIN IMMEDIATE` 排他写事务（`app/db.py::immediate_txn`）：
+`extend` 模式只增不减（短日期不会覆盖他人的长假）；`set` 覆盖式登记必须携带 `expected_rev`，
+过期 rev 返回 409。每次登记/解除都写 `grace_registrations` 流水，便于本机库核对。
+
+## 环境变量
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `PORT` | 6500 | 监听端口 |
+| `DATABASE_PATH` | `instance/retain_lab.db` | SQLite 路径 |
+| `RETAIN_GRACE_DISPOSITION` | `reject` | `reject` / `freeze`，二选一 |
+| `RETAIN_GRACE_DAYS` | 3 | 补采默认宽限天数 |
+| `RETAIN_REFERENCE_DATE` | 系统当天 | 冻结「今天」，便于复现宽限判定 |
 
 ## 本地（推荐反馈环）
 
